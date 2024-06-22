@@ -1,0 +1,8 @@
+[package]
+name = "pdf_merger"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lopdf = { version = "0.32.0" }
+clap = { version = "4.5.7" }
