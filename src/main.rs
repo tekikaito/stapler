@@ -1,45 +1,32 @@
 mod merge;
+mod cli;
 
-use clap::{ Arg, Command };
 use merge::{ merge_pdfs, FileSystemOptions };
+use cli::parse_cli_arguments;
 
 fn main() {
-    let matches = Command::new("stapler")
-        .version("1.0")
-        .author("Marc Gilbrecht <marc-gilbrecht@outlook.de>")
-        .about("Merges multiple PDFs into one")
-        .arg(
-            Arg::new("input")
-                .short('i')
-                .long("input")
-                .value_name("FILES")
-                .help("Input PDF files")
-                .num_args(2..)
-                .value_delimiter(' ')
-                .required(true)
-        )
-        .arg(
-            Arg::new("output")
-                .alias("o")
-                .long("output")
-                .value_name("FILE")
-                .help("Output PDF file")
-                .required(true)
-        )
-        .get_matches();
+    println!("[STAPLER] PDF MERGER");
 
-    let input_files = matches.get_many::<String>("input").unwrap();
-    let output_file = matches.get_one::<String>("output").unwrap();
+    if let Ok((input_files, output_file)) = parse_cli_arguments() {
+        let file_options = FileSystemOptions {
+            input_files: input_files
+                .iter()
+                .map(|s| s.as_str())
+                .collect(),
+            output_file: output_file.as_str(),
+        };
 
-    let options = FileSystemOptions {
-        input_files: input_files
-            .into_iter()
-            .map(|s| s.as_str())
-            .collect(),
-        output_file,
-    };
+        println!(
+            "[STAPLER] Merging PDFs: {:?} into {}",
+            file_options.input_files,
+            file_options.output_file
+        );
 
-    merge_pdfs(options).unwrap();
+        if let Err(e) = merge_pdfs(file_options) {
+            eprintln!("[STAPLER] Error: {}", e);
+            std::process::exit(1);
+        }
 
-    println!("PDFs merged successfully. Output file: {}", output_file);
+        println!("[STAPLER] PDFs merged successfully. Output file: {}", output_file);
+    }
 }

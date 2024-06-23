@@ -1,5 +1,5 @@
 use lopdf::{ Bookmark, Document, Object, ObjectId };
-use std::{ collections::BTreeMap, path::MAIN_SEPARATOR };
+use std::{ collections::BTreeMap, path::MAIN_SEPARATOR, result::Result };
 
 pub struct LoadedDocument {
     pub pdf_document: Document,
@@ -87,77 +87,28 @@ impl CompressingDocumentWriter for FileSystemOptions<'_> {
     }
 }
 
-pub fn merge_pdfs(options: FileSystemOptions) -> Result<(), Box<dyn std::error::Error>> {
-    let mut documents_pages = BTreeMap::new();
-    let mut documents_objects = BTreeMap::new();
-    let mut document = Document::with_version("1.5");
-
-    let mut catalog_object: Option<(ObjectId, Object)> = None;
-    let mut pages_object: Option<(ObjectId, Object)> = None;
-
-    let loaded_documents = options.load_documents();
-
-    for loaded_document in loaded_documents {
-        document.add_bookmark(loaded_document.bookmark, None);
-        documents_pages.extend(loaded_document.pages);
-        documents_objects.extend(loaded_document.objects);
-    }
-
-    for (object_id, object) in &documents_objects {
-        match object.type_name().unwrap_or("") {
-            "Catalog" => {
-                catalog_object.get_or_insert((*object_id, object.clone()));
-            }
-            "Pages" => {
-                if let Ok(dictionary) = object.as_dict() {
-                    let mut dictionary = dictionary.clone();
-                    if let Some((_, ref existing_object)) = pages_object {
-                        if let Ok(existing_dict) = existing_object.as_dict() {
-                            dictionary.extend(&existing_dict.clone());
-                        }
-                    }
-                    pages_object = Some((*object_id, Object::Dictionary(dictionary)));
-                }
-            }
-            "Page" | "Outlines" | "Outline" => {}
-            _ => {
-                document.objects.insert(*object_id, object.clone());
-            }
-        }
-    }
-
-    if pages_object.is_none() {
-        return Err("Pages root not found.".into());
-    }
-
-    if catalog_object.is_none() {
-        return Err("Catalog root not found.".into());
-    }
-
-    for (object_id, object) in documents_pages.clone() {
-        if let Ok(dictionary) = object.as_dict() {
-            let mut dictionary = dictionary.clone();
-            dictionary.set("Parent", pages_object.as_ref().unwrap().0);
-            document.objects.insert(object_id, Object::Dictionary(dictionary));
-        }
-    }
-
-    let catalog_object = catalog_object.unwrap();
-    let pages_object = pages_object.unwrap();
-
-    if let Ok(dictionary) = pages_object.1.as_dict() {
+fn update_document_hierarchy(
+    document: &mut Document,
+    root_page: (ObjectId, Object),
+    catalog_object: (ObjectId, Object),
+    documents_pages: BTreeMap<ObjectId, Object>
+) {
+    if let Ok(dictionary) = root_page.1.as_dict() {
         let mut dictionary = dictionary.clone();
-        dictionary.set("Count", documents_pages.clone().len() as u32);
+        dictionary.set("Count", documents_pages.len() as u32);
         dictionary.set(
             "Kids",
-            documents_pages.into_keys().map(Object::Reference).collect::<Vec<_>>()
+            documents_pages
+                .keys()
+                .map(|arg0: &(u32, u16)| Object::Reference(*arg0))
+                .collect::<Vec<_>>()
         );
-        document.objects.insert(pages_object.0, Object::Dictionary(dictionary));
+        document.objects.insert(root_page.0, Object::Dictionary(dictionary));
     }
 
     if let Ok(dictionary) = catalog_object.1.as_dict() {
         let mut dictionary = dictionary.clone();
-        dictionary.set("Pages", pages_object.0);
+        dictionary.set("Pages", root_page.0);
         dictionary.remove(b"Outlines");
         document.objects.insert(catalog_object.0, Object::Dictionary(dictionary));
     }
@@ -171,6 +122,90 @@ pub fn merge_pdfs(options: FileSystemOptions) -> Result<(), Box<dyn std::error::
         if let Ok(Object::Dictionary(ref mut dict)) = document.get_object_mut(catalog_object.0) {
             dict.set("Outlines", Object::Reference(n));
         }
+    }
+}
+
+type ProcessedObjectsResult = Result<
+    (((u32, u16), lopdf::Object), ((u32, u16), lopdf::Object)),
+    &'static str
+>;
+
+fn process_documents_objects(
+    document: &mut Document,
+    documents_objects: &BTreeMap<ObjectId, Object>
+) -> ProcessedObjectsResult {
+    let mut root_catalog_object: Option<(ObjectId, Object)> = None;
+    let mut root_page_object: Option<(ObjectId, Object)> = None;
+
+    for (object_id, object) in documents_objects {
+        match object.type_name().unwrap_or("") {
+            "Catalog" => {
+                root_catalog_object.get_or_insert((*object_id, object.clone()));
+            }
+            "Pages" => {
+                if let Ok(dictionary) = object.as_dict() {
+                    let mut dictionary = dictionary.clone();
+                    if let Some((_, ref existing_object)) = root_page_object {
+                        if let Ok(existing_dict) = existing_object.as_dict() {
+                            dictionary.extend(&existing_dict.clone());
+                        }
+                    }
+                    root_page_object = Some((*object_id, Object::Dictionary(dictionary)));
+                }
+            }
+            "Page" | "Outlines" | "Outline" => {}
+            _ => {
+                document.objects.insert(*object_id, object.clone());
+            }
+        }
+    }
+
+    if root_page_object.is_none() {
+        return Err("Pages root not found.");
+    }
+
+    if root_catalog_object.is_none() {
+        return Err("Catalog root not found.");
+    }
+
+    Ok((root_page_object.unwrap(), root_catalog_object.unwrap()))
+}
+
+fn insert_pages(document: &mut Document, pages: BTreeMap<ObjectId, Object>, parent: (u32, u16)) {
+    for (object_id, object) in pages {
+        if let Ok(dictionary) = object.as_dict() {
+            let mut dictionary = dictionary.clone();
+            dictionary.set("Parent", Object::Reference(parent));
+            document.objects.insert(object_id, Object::Dictionary(dictionary));
+        }
+    }
+}
+
+pub fn merge_pdfs(options: FileSystemOptions) -> Result<(), Box<dyn std::error::Error>> {
+    let mut documents_pages = BTreeMap::new();
+    let mut documents_objects = BTreeMap::new();
+    let mut document = Document::with_version("1.5");
+
+    let loaded_documents = options.load_documents();
+    for loaded_document in loaded_documents {
+        document.add_bookmark(loaded_document.bookmark, None);
+        documents_pages.extend(loaded_document.pages);
+        documents_objects.extend(loaded_document.objects);
+    }
+
+    if
+        let Ok((root_catalog_object, root_page_object)) = process_documents_objects(
+            &mut document,
+            &documents_objects
+        )
+    {
+        insert_pages(&mut document, documents_pages.clone(), root_page_object.0);
+        update_document_hierarchy(
+            &mut document,
+            root_page_object,
+            root_catalog_object,
+            documents_pages
+        );
     }
 
     options.write_document(document, options.output_file)?;
