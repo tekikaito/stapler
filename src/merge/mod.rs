@@ -2,7 +2,7 @@ pub mod loader;
 
 use loader::{ fs::{ FileSystemMergingDestination, FileSystemMergingSource }, MergableDocument };
 use lopdf::{ Document, Object, ObjectId };
-use std::{ collections::BTreeMap, result::Result };
+use std::{ collections::BTreeMap, error::Error, result::Result };
 
 pub(crate) struct FileSystemOptions<'a> {
     pub input_sources: Vec<FileSystemMergingSource<'a>>,
@@ -13,14 +13,14 @@ fn update_document_hierarchy(
     document: &mut Document,
     root_page: (ObjectId, Object),
     catalog_object: (ObjectId, Object),
-    documents_pages: BTreeMap<ObjectId, Object>
+    pages: BTreeMap<ObjectId, Object>
 ) {
     if let Ok(dictionary) = root_page.1.as_dict() {
         let mut dictionary = dictionary.clone();
-        dictionary.set("Count", documents_pages.len() as u32);
+        dictionary.set("Count", pages.len() as u32);
         dictionary.set(
             "Kids",
-            documents_pages
+            pages
                 .keys()
                 .map(|arg0: &(u32, u16)| Object::Reference(*arg0))
                 .collect::<Vec<_>>()
@@ -54,12 +54,12 @@ type ProcessedObjectsResult = Result<
 
 fn process_documents_objects(
     document: &mut Document,
-    documents_objects: &BTreeMap<ObjectId, Object>
+    objects: &BTreeMap<ObjectId, Object>
 ) -> ProcessedObjectsResult {
     let mut root_catalog_object: Option<(ObjectId, Object)> = None;
     let mut root_page_object: Option<(ObjectId, Object)> = None;
 
-    for (object_id, object) in documents_objects {
+    for (object_id, object) in objects {
         match object.type_name().unwrap_or("") {
             "Catalog" => {
                 root_catalog_object.get_or_insert((*object_id, object.clone()));
@@ -106,7 +106,7 @@ fn insert_pages(document: &mut Document, pages: BTreeMap<ObjectId, Object>, pare
 pub(crate) fn merge_documents(
     root_document: &mut Document,
     aggregated_documents: Vec<MergableDocument>
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn Error>> {
     let mut res_pages = BTreeMap::new();
     let mut res_objects = BTreeMap::new();
     let mut max_id: u32 = 1;
