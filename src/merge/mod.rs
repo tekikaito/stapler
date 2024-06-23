@@ -1,63 +1,12 @@
-use lopdf::{ Bookmark, Document, Object, ObjectId };
-use std::{ collections::BTreeMap, path::MAIN_SEPARATOR, result::Result };
+pub mod loader;
 
-pub(crate) struct FileSystemMergingDestination<'a> {
-    pub output_file: &'a str,
-}
-
-pub(crate) struct FileSystemMergingSource<'a> {
-    pub input_file: &'a str,
-}
-
-pub(crate) trait FileSystemDocumentWriter {
-    fn write_document(
-        &self,
-        document: Document,
-        output_file: &str
-    ) -> Result<(), Box<dyn std::error::Error>>;
-}
+use loader::{ fs::{ FileSystemMergingDestination, FileSystemMergingSource }, MergableDocument };
+use lopdf::{ Document, Object, ObjectId };
+use std::{ collections::BTreeMap, result::Result };
 
 pub(crate) struct FileSystemOptions<'a> {
     pub input_sources: Vec<FileSystemMergingSource<'a>>,
     pub destination: FileSystemMergingDestination<'a>,
-}
-
-impl DocumentLoader for FileSystemMergingSource<'_> {
-    fn load(&self) -> MergableDocument {
-        let pdf_document = Document::load(self.input_file).expect("Failed to load PDF file");
-        let original_filename = self.input_file.split(MAIN_SEPARATOR).last().unwrap().to_string();
-
-        let mut objects = BTreeMap::new();
-        let mut pages = BTreeMap::new();
-        let mut first_page_id = (0, 0);
-        let mut has_visited_first_page = false;
-
-        let pages_from_doc = pdf_document
-            .get_pages()
-            .into_values()
-            .map(|object_id| {
-                if !has_visited_first_page {
-                    first_page_id = object_id;
-                    has_visited_first_page = true;
-                }
-                (object_id, pdf_document.get_object(object_id).unwrap().clone())
-            })
-            .collect::<BTreeMap<ObjectId, Object>>();
-
-        let bookmark = Bookmark::new(original_filename.clone(), [0.0, 0.0, 1.0], 0, first_page_id);
-
-        pages.extend(pages_from_doc);
-        objects.extend(pdf_document.objects.clone());
-
-        MergableDocument {
-            pdf_document,
-            original_filename,
-            filepath: self.input_file.to_string(),
-            objects,
-            pages,
-            bookmark,
-        }
-    }
 }
 
 fn update_document_hierarchy(
@@ -154,27 +103,22 @@ fn insert_pages(document: &mut Document, pages: BTreeMap<ObjectId, Object>, pare
     }
 }
 
-pub(crate) fn process_mergable_documents(
-    document: &mut Document,
-    documents: Vec<MergableDocument>
+pub(crate) fn merge_documents(
+    root_document: &mut Document,
+    aggregated_documents: Vec<MergableDocument>
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut documents_pages = BTreeMap::new();
-    let mut documents_objects = BTreeMap::new();
+    let mut pages = BTreeMap::new();
+    let mut objects = BTreeMap::new();
 
-    for loaded_document in documents {
-        document.add_bookmark(loaded_document.bookmark, None);
-        documents_pages.extend(loaded_document.pages);
-        documents_objects.extend(loaded_document.objects);
-    }
+    aggregated_documents.into_iter().for_each(|doc| {
+        root_document.add_bookmark(doc.bookmark, None);
+        pages.extend(doc.pages);
+        objects.extend(doc.objects);
+    });
 
-    if
-        let Ok((root_catalog_object, root_page_object)) = process_documents_objects(
-            document,
-            &documents_objects
-        )
-    {
-        insert_pages(document, documents_pages.clone(), root_page_object.0);
-        update_document_hierarchy(document, root_page_object, root_catalog_object, documents_pages);
+    if let Ok((root_catalog, root_page)) = process_documents_objects(root_document, &objects) {
+        insert_pages(root_document, pages.clone(), root_page.0);
+        update_document_hierarchy(root_document, root_page, root_catalog, pages);
     }
 
     Ok(())

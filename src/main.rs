@@ -1,26 +1,31 @@
 mod merge;
 mod cli;
 
+use std::fs::File;
+
 use lopdf::Document;
 use merge::{
-    process_mergable_documents,
-    FileSystemMergingDestination,
-    FileSystemMergingSource,
+    loader::{
+        fs::{ FileSystemMergingDestination, FileSystemMergingSource },
+        DocumentLoader,
+        MergableDocument,
+    },
+    merge_documents,
     FileSystemOptions,
-    MergableDocument,
 };
 use cli::parse_cli_arguments;
 
-fn stapler(options: FileSystemOptions) -> Result<(), String> {
+fn stapler(options: FileSystemOptions) -> Result<File, String> {
     let loaded_documents = options.input_sources
         .iter()
         .map(|source| source.load())
         .collect::<Vec<MergableDocument>>();
 
     let mut document = Document::with_version("1.5");
-    process_mergable_documents(&mut document, loaded_documents)?;
+    merge_documents(&mut document, loaded_documents).map_err(|e| e.to_string())?;
 
-    options.destination.write_document(document, options.destination.output_file)?;
+    document.compress();
+    document.save(options.destination.output_file).map_err(|e| e.to_string())
 }
 
 fn main() {
@@ -37,7 +42,7 @@ fn main() {
 
         println!("[STAPLER] Merging PDFs: {:?} into {}", input_files, output_file);
 
-        if let Err(e) = merge_pdfs(file_options) {
+        if let Err(e) = stapler(file_options) {
             eprintln!("[STAPLER] Error: {}", e);
             std::process::exit(1);
         }
