@@ -18,7 +18,7 @@ use cli::parse_cli_arguments;
 fn stapler(options: FileSystemOptions) -> Result<File, String> {
     let loaded_documents = options.input_sources
         .iter()
-        .map(|source| source.load())
+        .map(|source| source.load_from())
         .collect::<Vec<MergableDocument>>();
 
     let mut document = Document::with_version("1.5");

@@ -107,18 +107,24 @@ pub(crate) fn merge_documents(
     root_document: &mut Document,
     aggregated_documents: Vec<MergableDocument>
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut pages = BTreeMap::new();
-    let mut objects = BTreeMap::new();
+    let mut res_pages = BTreeMap::new();
+    let mut res_objects = BTreeMap::new();
+    let mut max_id: u32 = 1;
 
-    aggregated_documents.into_iter().for_each(|doc| {
-        root_document.add_bookmark(doc.bookmark, None);
-        pages.extend(doc.pages);
-        objects.extend(doc.objects);
+    aggregated_documents.into_iter().for_each(|mut doc| {
+        doc.set_offset(max_id + 1);
+        let pages = doc.get_pages();
+        let first_page_id = *pages.keys().next().unwrap();
+        println!("Adding bookmark for page: {:?}", first_page_id);
+        doc.add_original_name_to_bookmark(first_page_id);
+        res_pages.extend(pages);
+        res_objects.extend(doc.get_objects());
+        max_id += doc.get_max_id();
     });
 
-    if let Ok((root_catalog, root_page)) = process_documents_objects(root_document, &objects) {
-        insert_pages(root_document, pages.clone(), root_page.0);
-        update_document_hierarchy(root_document, root_page, root_catalog, pages);
+    if let Ok((root_catalog, root_page)) = process_documents_objects(root_document, &res_objects) {
+        insert_pages(root_document, res_pages.clone(), root_page.0);
+        update_document_hierarchy(root_document, root_page, root_catalog, res_pages);
     }
 
     Ok(())
