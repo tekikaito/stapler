@@ -22,7 +22,9 @@ fn stapler(options: FileSystemOptions) -> Result<File, String> {
         .collect::<Vec<MergableDocument>>();
 
     let mut document = Document::with_version("1.5");
-    merge_documents(&mut document, loaded_documents).map_err(|e| e.to_string())?;
+    if let Err(e) = merge_documents(&mut document, loaded_documents) {
+        return Err(e.to_string());
+    }
 
     document.compress();
     document.save(options.destination.output_file).map_err(|e| e.to_string())
