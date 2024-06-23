@@ -1,8 +1,27 @@
 mod merge;
 mod cli;
 
-use merge::{ merge_pdfs, FileSystemMergingDestination, FileSystemMergingSource, FileSystemOptions };
+use lopdf::Document;
+use merge::{
+    process_mergable_documents,
+    FileSystemMergingDestination,
+    FileSystemMergingSource,
+    FileSystemOptions,
+    MergableDocument,
+};
 use cli::parse_cli_arguments;
+
+fn stapler(options: FileSystemOptions) -> Result<(), String> {
+    let loaded_documents = options.input_sources
+        .iter()
+        .map(|source| source.load())
+        .collect::<Vec<MergableDocument>>();
+
+    let mut document = Document::with_version("1.5");
+    process_mergable_documents(&mut document, loaded_documents)?;
+
+    options.destination.write_document(document, options.destination.output_file)?;
+}
 
 fn main() {
     println!("[STAPLER] PDF MERGER");

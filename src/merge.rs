@@ -1,25 +1,12 @@
 use lopdf::{ Bookmark, Document, Object, ObjectId };
 use std::{ collections::BTreeMap, path::MAIN_SEPARATOR, result::Result };
 
-pub struct MergableDocument {
-    pub pdf_document: Document,
-    pub original_filename: String,
-    pub filepath: String,
-    pub objects: BTreeMap<ObjectId, Object>,
-    pub pages: BTreeMap<ObjectId, Object>,
-    pub bookmark: Bookmark,
-}
-
-pub struct FileSystemMergingDestination<'a> {
+pub(crate) struct FileSystemMergingDestination<'a> {
     pub output_file: &'a str,
 }
 
-pub struct FileSystemMergingSource<'a> {
+pub(crate) struct FileSystemMergingSource<'a> {
     pub input_file: &'a str,
-}
-
-pub(crate) trait DocumentLoader {
-    fn load(&self) -> MergableDocument;
 }
 
 pub(crate) trait FileSystemDocumentWriter {
@@ -70,17 +57,6 @@ impl DocumentLoader for FileSystemMergingSource<'_> {
             pages,
             bookmark,
         }
-    }
-}
-
-impl FileSystemDocumentWriter for FileSystemMergingDestination<'_> {
-    fn write_document(
-        &self,
-        mut document: Document,
-        output_file: &str
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        document.save(output_file)?;
-        Ok(())
     }
 }
 
@@ -178,7 +154,7 @@ fn insert_pages(document: &mut Document, pages: BTreeMap<ObjectId, Object>, pare
     }
 }
 
-fn process_mergable_documents(
+pub(crate) fn process_mergable_documents(
     document: &mut Document,
     documents: Vec<MergableDocument>
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -200,20 +176,6 @@ fn process_mergable_documents(
         insert_pages(document, documents_pages.clone(), root_page_object.0);
         update_document_hierarchy(document, root_page_object, root_catalog_object, documents_pages);
     }
-
-    Ok(())
-}
-
-pub fn merge_pdfs(options: FileSystemOptions) -> Result<(), Box<dyn std::error::Error>> {
-    let loaded_documents = options.input_sources
-        .iter()
-        .map(|source| source.load())
-        .collect::<Vec<MergableDocument>>();
-
-    let mut document = Document::with_version("1.5");
-    process_mergable_documents(&mut document, loaded_documents)?;
-
-    options.destination.write_document(document, options.destination.output_file)?;
 
     Ok(())
 }
