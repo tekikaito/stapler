@@ -1,7 +1,7 @@
 mod merge;
 
 use clap::{ Arg, Command };
-use merge::merge_pdfs;
+use merge::{ merge_pdfs, FileSystemOptions };
 
 fn main() {
     let matches = Command::new("stapler")
@@ -29,17 +29,17 @@ fn main() {
         .get_matches();
 
     let input_files = matches.get_many::<String>("input").unwrap();
-    let input_files: Vec<&str> = input_files
-        .into_iter()
-        .map(|s| s.as_str())
-        .collect();
-    if input_files.len() < 2 {
-        eprintln!("You need to provide at least two input files");
-        std::process::exit(1);
-    }
-
     let output_file = matches.get_one::<String>("output").unwrap();
 
-    merge_pdfs(input_files, output_file).expect("Failed to merge PDFs");
+    let options = FileSystemOptions {
+        input_files: input_files
+            .into_iter()
+            .map(|s| s.as_str())
+            .collect(),
+        output_file,
+    };
+
+    merge_pdfs(options).unwrap();
+
     println!("PDFs merged successfully. Output file: {}", output_file);
 }

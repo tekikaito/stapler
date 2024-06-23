@@ -10,54 +10,88 @@ pub struct LoadedDocument {
     pub bookmark: Bookmark,
 }
 
-impl LoadedDocument {
-    pub fn from_filepath(filepath: &str) -> LoadedDocument {
-        let pdf_document = Document::load(filepath).expect("Failed to load PDF file");
-        let original_filename = filepath.split(path::MAIN_SEPARATOR).last().unwrap().to_string();
+pub struct FileSystemOptions<'a> {
+    pub input_files: Vec<&'a str>,
+    pub output_file: &'a str,
+}
 
-        let mut objects = BTreeMap::new();
-        let mut pages = BTreeMap::new();
+trait DocumentBatchLoader {
+    fn load_documents(&self) -> Map<std::vec::IntoIter<&str>, fn(&str) -> LoadedDocument>;
+}
 
-        let mut first_page_id = (0, 0);
-        let mut has_visited_first_page = false;
+trait CompressingDocumentWriter {
+    fn write_document(
+        &self,
+        document: Document,
+        output_file: &str
+    ) -> Result<(), Box<dyn std::error::Error>>;
+}
 
-        let pages_from_doc = pdf_document
-            .get_pages()
-            .into_values()
-            .map(|object_id: (u32, u16)| {
-                if !has_visited_first_page {
-                    first_page_id = object_id;
-                    has_visited_first_page = true;
+impl DocumentBatchLoader for FileSystemOptions<'_> {
+    fn load_documents(&self) -> Map<std::vec::IntoIter<&str>, fn(&str) -> LoadedDocument> {
+        <std::vec::Vec<&str> as Clone>
+            ::clone(&self.input_files)
+            .into_iter()
+            .map(|filepath| {
+                let pdf_document = Document::load(filepath).expect("Failed to load PDF file");
+                let original_filename = filepath
+                    .split(path::MAIN_SEPARATOR)
+                    .last()
+                    .unwrap()
+                    .to_string();
+
+                let mut objects = BTreeMap::new();
+                let mut pages = BTreeMap::new();
+
+                let mut first_page_id = (0, 0);
+                let mut has_visited_first_page = false;
+
+                let pages_from_doc = pdf_document
+                    .get_pages()
+                    .into_values()
+                    .map(|object_id: (u32, u16)| {
+                        if !has_visited_first_page {
+                            first_page_id = object_id;
+                            has_visited_first_page = true;
+                        }
+                        (object_id, pdf_document.get_object(object_id).unwrap().to_owned())
+                    })
+                    .collect::<BTreeMap<ObjectId, Object>>();
+
+                let bookmark = Bookmark::new(
+                    original_filename.clone(),
+                    [0.0, 0.0, 1.0],
+                    0,
+                    first_page_id
+                );
+                pages.extend(pages_from_doc);
+                objects.extend(pdf_document.objects.clone());
+
+                LoadedDocument {
+                    pdf_document,
+                    original_filename,
+                    filepath: filepath.to_string(),
+                    objects,
+                    pages,
+                    bookmark,
                 }
-                (object_id, pdf_document.get_object(object_id).unwrap().to_owned())
             })
-            .collect::<BTreeMap<ObjectId, Object>>();
-
-        let bookmark = Bookmark::new(original_filename.clone(), [0.0, 0.0, 1.0], 0, first_page_id);
-        pages.extend(pages_from_doc);
-        objects.extend(pdf_document.objects.clone());
-
-        LoadedDocument {
-            pdf_document,
-            original_filename,
-            filepath: filepath.to_string(),
-            objects,
-            pages,
-            bookmark,
-        }
-    }
-
-    pub fn from_filepaths(
-        filepaths: Vec<&str>
-    ) -> Map<std::vec::IntoIter<&str>, fn(&str) -> LoadedDocument> {
-        filepaths.into_iter().map(LoadedDocument::from_filepath)
     }
 }
 
-pub fn merge_pdfs(
-    input_files: Vec<&str>,
-    output_file: &str
-) -> Result<(), Box<dyn std::error::Error>> {
+impl CompressingDocumentWriter for FileSystemOptions<'_> {
+    fn write_document(
+        &self,
+        mut document: Document,
+        output_file: &str
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        document.compress();
+        document.save(output_file)?;
+        Ok(())
+    }
+}
+
+pub fn merge_pdfs(options: FileSystemOptions) -> Result<(), Box<dyn std::error::Error>> {
     // Collect all Documents Objects grouped by a map
     let mut documents_pages = BTreeMap::new();
     let mut documents_objects = BTreeMap::new();
@@ -67,8 +101,7 @@ pub fn merge_pdfs(
     let mut catalog_object: Option<(ObjectId, Object)> = None;
     let mut pages_object: Option<(ObjectId, Object)> = None;
 
-    let loaded_documents: Vec<LoadedDocument> =
-        LoadedDocument::from_filepaths(input_files).collect();
+    let loaded_documents: Vec<LoadedDocument> = options.load_documents().collect();
 
     for loaded_document in loaded_documents.into_iter() {
         document.add_bookmark(loaded_document.bookmark, None);
@@ -116,9 +149,11 @@ pub fn merge_pdfs(
 
     // If no "Pages" object found abort
     if pages_object.is_none() {
-        println!("Pages root not found.");
+        panic!("Pages root not found.");
+    }
 
-        return Ok(());
+    if catalog_object.is_none() {
+        panic!("Catalog root not found.");
     }
 
     // Iterate over all "Page" objects and collect into the parent "Pages" created before
@@ -132,12 +167,6 @@ pub fn merge_pdfs(
     }
 
     // If no "Catalog" found abort
-    if catalog_object.is_none() {
-        println!("Catalog root not found.");
-
-        return Ok(());
-    }
-
     let catalog_object = catalog_object.unwrap();
     let pages_object = pages_object.unwrap();
 
@@ -184,8 +213,7 @@ pub fn merge_pdfs(
         }
     }
 
-    document.compress();
-    document.save(output_file)?;
+    options.write_document(document, options.output_file)?;
 
     Ok(())
 }
