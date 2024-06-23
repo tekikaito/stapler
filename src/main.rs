@@ -3,7 +3,6 @@ mod cli;
 
 use std::fs::File;
 
-use lopdf::Document;
 use merge::{
     loader::{
         fs::{ FileSystemMergingDestination, FileSystemMergingSource },
@@ -21,18 +20,15 @@ fn stapler(options: FileSystemOptions) -> Result<File, String> {
         .map(|source| source.load_from())
         .collect::<Vec<MergableDocument>>();
 
-    let mut document = Document::with_version("1.5");
-    if let Err(e) = merge_documents(&mut document, loaded_documents) {
-        return Err(e.to_string());
+    if let Ok(mut document) = merge_documents(loaded_documents) {
+        document.compress();
+        document.save(options.destination.output_file).map_err(|e| e.to_string())
+    } else {
+        Err("Failed to merge documents".to_string())
     }
-
-    document.compress();
-    document.save(options.destination.output_file).map_err(|e| e.to_string())
 }
 
 fn main() {
-    println!("[STAPLER] PDF MERGER");
-
     if let Ok((input_files, output_file)) = parse_cli_arguments() {
         let file_options = FileSystemOptions {
             input_sources: input_files

@@ -47,10 +47,7 @@ fn update_document_hierarchy(
     }
 }
 
-type ProcessedObjectsResult = Result<
-    (((u32, u16), lopdf::Object), ((u32, u16), lopdf::Object)),
-    &'static str
->;
+type ProcessedObjectsResult = Result<(((u32, u16), Object), ((u32, u16), Object)), &'static str>;
 
 fn process_documents_objects(
     document: &mut Document,
@@ -104,28 +101,29 @@ fn insert_pages(document: &mut Document, pages: BTreeMap<ObjectId, Object>, pare
 }
 
 pub(crate) fn merge_documents(
-    root_document: &mut Document,
-    aggregated_documents: Vec<MergableDocument>
-) -> Result<(), Box<dyn Error>> {
+    documents: Vec<MergableDocument>
+) -> Result<Document, Box<dyn Error>> {
     let mut res_pages = BTreeMap::new();
     let mut res_objects = BTreeMap::new();
+    let mut res_bookmarks = BTreeMap::new();
     let mut max_id: u32 = 1;
 
-    aggregated_documents.into_iter().for_each(|mut doc| {
-        doc.set_offset(max_id + 1);
-        let pages = doc.get_pages();
-        let first_page_id = *pages.keys().next().unwrap();
-        println!("Adding bookmark for page: {:?}", first_page_id);
-        doc.add_original_name_to_bookmark(first_page_id);
-        res_pages.extend(pages);
+    let mut document = Document::with_version("1.5");
+    documents.into_iter().for_each(|mut doc| {
+        let first_page_id = doc.renumber(max_id).get_first_page_id();
+        res_bookmarks.insert(None, doc.get_filename_based_bookmark(first_page_id));
+        res_pages.extend(doc.get_pages());
         res_objects.extend(doc.get_objects());
         max_id += doc.get_max_id();
     });
 
-    if let Ok((root_catalog, root_page)) = process_documents_objects(root_document, &res_objects) {
-        insert_pages(root_document, res_pages.clone(), root_page.0);
-        update_document_hierarchy(root_document, root_page, root_catalog, res_pages);
+    if let Ok((root_catalog, root_page)) = process_documents_objects(&mut document, &res_objects) {
+        res_bookmarks.iter().for_each(|(reference, bookmark)| {
+            document.add_bookmark(bookmark.clone(), *reference);
+        });
+        insert_pages(&mut document, res_pages.clone(), root_page.0);
+        update_document_hierarchy(&mut document, root_page, root_catalog, res_pages);
     }
 
-    Ok(())
+    Ok(document)
 }

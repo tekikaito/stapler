@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-
 use lopdf::{ Bookmark, Document, Object, ObjectId };
 
 pub(crate) trait DocumentLoader {
@@ -24,15 +23,17 @@ impl MergableDocument {
         self.pdf.objects.clone()
     }
 
-    pub(crate) fn set_offset(&mut self, offset: u32) {
-        self.pdf.renumber_objects_with(offset)
+    pub(crate) fn renumber(&mut self, offset: u32) -> &mut MergableDocument {
+        self.pdf.renumber_objects_with(offset);
+        self
     }
 
-    pub(crate) fn add_original_name_to_bookmark(&mut self, page_id: (u32, u16)) {
-        self.pdf.add_bookmark(
-            Bookmark::new(self.original_filename.to_string(), [0.0, 0.0, 1.0], 0, page_id),
-            None
-        );
+    pub(crate) fn get_first_page_id(&self) -> ObjectId {
+        *self.pdf.get_pages().values().next().unwrap()
+    }
+
+    pub fn get_filename_based_bookmark(&self, page_id: ObjectId) -> Bookmark {
+        Bookmark::new(self.original_filename.clone(), [0.0, 0.0, 1.0], 0, page_id)
     }
 
     pub(crate) fn get_max_id(&self) -> u32 {
