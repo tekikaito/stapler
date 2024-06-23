@@ -7,7 +7,7 @@ pub fn parse_cli_arguments() -> std::result::Result<
     let matches = Command::new("stapler")
         .version("1.0")
         .author("Marc Gilbrecht <marc-gilbrecht@outlook.de>")
-        .about("Merges multiple PDFs into one")
+        .about("Merge multiple (minimum 2) PDF files into one PDF file and nothing else")
         .arg(
             Arg::new("input")
                 .short('i')
@@ -20,12 +20,14 @@ pub fn parse_cli_arguments() -> std::result::Result<
         )
         .arg(
             Arg::new("output")
-                .alias("o")
+                .short('o')
                 .long("output")
                 .value_name("FILE")
                 .help("Output PDF file")
                 .required(true)
         )
+        // !TODO
+        // .arg(Arg::new("compress").short('c').long("compress").help("Compress the output PDF file"))
         .get_matches();
 
     let input_files: Vec<String> = if let Some(files) = matches.get_many::<String>("input") {
