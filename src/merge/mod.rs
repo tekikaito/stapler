@@ -1,10 +1,10 @@
 pub mod loader;
-
+mod tests;
 use loader::{ fs::{ FileSystemMergingDestination, FileSystemMergingSource }, MergableDocument };
-use lopdf::{ Document, Object, ObjectId };
+use lopdf::{ content::{ Content, Operation }, dictionary, Document, Object, ObjectId, Stream };
 use std::{ collections::BTreeMap, error::Error, result::Result };
 
-pub(crate) struct FileSystemOptions<'a> {
+pub struct FileSystemOptions<'a> {
     pub input_sources: Vec<FileSystemMergingSource<'a>>,
     pub destination: FileSystemMergingDestination<'a>,
 }
@@ -100,9 +100,11 @@ fn insert_pages(document: &mut Document, pages: BTreeMap<ObjectId, Object>, pare
     }
 }
 
-pub(crate) fn merge_documents(
-    documents: Vec<MergableDocument>
-) -> Result<Document, Box<dyn Error>> {
+pub fn merge_documents(documents: Vec<MergableDocument>) -> Result<Document, Box<dyn Error>> {
+    if documents.len() < 2 {
+        return Err("At least two documents are required to merge.".into());
+    }
+
     let mut res_pages = BTreeMap::new();
     let mut res_objects = BTreeMap::new();
     let mut res_bookmarks = BTreeMap::new();

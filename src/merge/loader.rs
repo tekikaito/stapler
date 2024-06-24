@@ -1,17 +1,17 @@
 use std::collections::BTreeMap;
 use lopdf::{ Bookmark, Document, Object, ObjectId };
 
-pub(crate) trait DocumentLoader {
+pub trait DocumentLoader {
     fn load_from(&self) -> MergableDocument;
 }
 
-pub(crate) struct MergableDocument {
+pub struct MergableDocument {
     original_filename: String,
     pdf: Document,
 }
 
 impl MergableDocument {
-    pub(crate) fn get_pages(&self) -> BTreeMap<(u32, u16), Object> {
+    pub fn get_pages(&self) -> BTreeMap<(u32, u16), Object> {
         self.pdf
             .get_pages()
             .into_values()
@@ -19,16 +19,16 @@ impl MergableDocument {
             .collect::<BTreeMap<ObjectId, Object>>()
     }
 
-    pub(crate) fn get_objects(&self) -> BTreeMap<(u32, u16), Object> {
+    pub fn get_objects(&self) -> BTreeMap<(u32, u16), Object> {
         self.pdf.objects.clone()
     }
 
-    pub(crate) fn renumber(&mut self, offset: u32) -> &mut MergableDocument {
+    pub fn renumber(&mut self, offset: u32) -> &mut MergableDocument {
         self.pdf.renumber_objects_with(offset);
         self
     }
 
-    pub(crate) fn get_first_page_id(&self) -> ObjectId {
+    pub fn get_first_page_id(&self) -> ObjectId {
         *self.pdf.get_pages().values().next().unwrap()
     }
 
@@ -36,8 +36,15 @@ impl MergableDocument {
         Bookmark::new(self.original_filename.clone(), [0.0, 0.0, 1.0], 0, page_id)
     }
 
-    pub(crate) fn get_max_id(&self) -> u32 {
+    pub fn get_max_id(&self) -> u32 {
         self.pdf.max_id
+    }
+
+    pub fn from_document(original_filename: &str, pdf: Document) -> MergableDocument {
+        MergableDocument {
+            original_filename: original_filename.to_string(),
+            pdf,
+        }
     }
 }
 
@@ -48,11 +55,11 @@ pub mod fs {
     use crate::DocumentLoader;
     use super::MergableDocument;
 
-    pub(crate) struct FileSystemMergingDestination<'a> {
+    pub struct FileSystemMergingDestination<'a> {
         pub output_file: &'a str,
     }
 
-    pub(crate) struct FileSystemMergingSource<'a> {
+    pub struct FileSystemMergingSource<'a> {
         pub input_file: &'a str,
     }
 
