@@ -3,6 +3,21 @@ name = "stapler"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "stapler"
+path = "src/lib.rs"
+
+[[bin]]
+name = "stapler"
+path = "src/main.rs"
+
 [dependencies]
 lopdf = { version = "0.32.0" }
 clap = { version = "4.5.7" }
+
+[dev-dependencies]
+criterion = { version = "0.5.1" }
+
+[[bench]]
+name = "stapler_benches"
+harness = false
