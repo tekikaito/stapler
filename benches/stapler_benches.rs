@@ -1,4 +1,4 @@
-use std::fs;
+use std::{ env::var, fs };
 
 use criterion::{ black_box, criterion_group, criterion_main, BatchSize, Criterion };
 use merge::{
@@ -10,7 +10,10 @@ use stapler::{ merge, stapler };
 
 fn stapler_benchmark(c: &mut Criterion) {
     let testfiles_dir = "testfiles";
-    let input_files: Vec<String> = (1..=100)
+    // get maximum from env variable or default to 100
+    let max_files = var("CRITERION_MAX_FILES").unwrap_or("100".to_string()).parse::<u32>().unwrap();
+
+    let input_files: Vec<String> = (1..=max_files)
         .map(|index| format!("{}/input{}.pdf", testfiles_dir, index))
         .collect();
     let output_file = format!("{}/output.pdf", testfiles_dir);
@@ -47,7 +50,7 @@ fn stapler_benchmark(c: &mut Criterion) {
         )
     });
 
-    let keep_output = std::env::var("CRITERION_KEEP_OUTPUT");
+    let keep_output = var("CRITERION_KEEP_OUTPUT");
     if keep_output.is_err() || keep_output.unwrap() == "false" {
         fs::remove_dir_all(testfiles_dir).unwrap();
     }
