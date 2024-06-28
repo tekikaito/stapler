@@ -10,7 +10,7 @@ use stapler::{ merge, stapler };
 
 fn stapler_benchmark(c: &mut Criterion) {
     let testfiles_dir = "testfiles";
-    let input_files: Vec<String> = (1..=30)
+    let input_files: Vec<String> = (1..=100)
         .map(|index| format!("{}/input{}.pdf", testfiles_dir, index))
         .collect();
     let output_file = format!("{}/output.pdf", testfiles_dir);

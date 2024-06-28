@@ -129,7 +129,7 @@ pub fn merge_documents(documents: Vec<MergableDocument>) -> Result<Document, Box
         res_bookmarks.insert(None, doc.get_filename_based_bookmark(first_page_id));
         res_pages.extend(doc.get_pages());
         res_objects.extend(doc.get_objects());
-        max_id += doc.get_max_id();
+        max_id = doc.get_max_id() + 1;
     });
 
     if let Ok((root_catalog, root_page)) = process_documents_objects(&mut document, &res_objects) {
