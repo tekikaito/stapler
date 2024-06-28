@@ -32,4 +32,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run benchmarks
-        run: cargo bench --verbose
+        run: |
+          cargo bench --verbose
+          cargo bench --verbose
+          cargo bench --verbose
+          cargo bench --verbose
+          cargo bench --verbose
