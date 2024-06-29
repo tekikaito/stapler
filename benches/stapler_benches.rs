@@ -6,7 +6,7 @@ use merge::{
     FileSystemOptions,
     tests::create_sample_pdf,
 };
-use stapler::{ merge, stapler };
+use stapler::{ merge::{ self, tests::COMPRESS_OUTPUT_WHEN_TESTING }, stapler };
 
 fn stapler_benchmark(c: &mut Criterion) {
     let testfiles_dir = "testfiles";
@@ -37,6 +37,7 @@ fn stapler_benchmark(c: &mut Criterion) {
         destination: FileSystemMergingDestination {
             output_file: &output_file,
         },
+        compress: COMPRESS_OUTPUT_WHEN_TESTING,
     };
 
     c.bench_function("stapler", |b| {

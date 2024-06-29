@@ -8,16 +8,18 @@ use std::{ collections::BTreeMap, error::Error, result::Result };
 pub struct FileSystemOptions<'a> {
     pub input_sources: Vec<FileSystemMergingSource<'a>>,
     pub destination: FileSystemMergingDestination<'a>,
+    pub compress: bool,
 }
 
-impl<'a> From<(&'a Vec<String>, &'a String)> for FileSystemOptions<'a> {
-    fn from((input_files, output_file): (&'a Vec<String>, &'a String)) -> Self {
+impl<'a> From<(&'a Vec<String>, &'a String, bool)> for FileSystemOptions<'a> {
+    fn from((input_files, output_file, compress): (&'a Vec<String>, &'a String, bool)) -> Self {
         FileSystemOptions {
             input_sources: input_files
                 .iter()
                 .map(|input_file| FileSystemMergingSource { input_file })
                 .collect(),
             destination: FileSystemMergingDestination { output_file },
+            compress,
         }
     }
 }
@@ -113,7 +115,10 @@ fn insert_pages(document: &mut Document, pages: BTreeMap<ObjectId, Object>, pare
     }
 }
 
-pub fn merge_documents(documents: Vec<MergableDocument>) -> Result<Document, Box<dyn Error>> {
+pub fn merge_documents(
+    documents: Vec<MergableDocument>,
+    compress: bool
+) -> Result<Document, Box<dyn Error>> {
     if documents.len() < 2 {
         return Err("At least two documents are required to merge.".into());
     }
@@ -138,6 +143,10 @@ pub fn merge_documents(documents: Vec<MergableDocument>) -> Result<Document, Box
         });
         insert_pages(&mut document, res_pages.clone(), root_page.0);
         update_document_hierarchy(&mut document, root_page, root_catalog, res_pages);
+    }
+
+    if compress {
+        document.compress();
     }
 
     Ok(document)

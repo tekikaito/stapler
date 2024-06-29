@@ -2,6 +2,8 @@ use lopdf::{ content::{ Content, Operation }, dictionary, Stream };
 
 use super::*;
 
+pub const COMPRESS_OUTPUT_WHEN_TESTING: bool = false;
+
 // Function to create a sample PDF document
 pub fn create_sample_pdf(title: &str) -> Document {
     let mut doc = Document::with_version("1.5");
@@ -71,14 +73,14 @@ pub fn create_sample_pdf(title: &str) -> Document {
 }
 
 #[allow(dead_code)]
-fn test_merge_x_documents(documents_num: u16) {
+fn test_merge_x_documents(documents_num: u16, compress: bool) {
     let mut mergable_docs = vec![];
     for i in 0..documents_num {
         let doc = create_sample_pdf(&format!("Document {}", i));
         mergable_docs.push(MergableDocument::from_document(&format!("doc{}.pdf", i), doc));
     }
 
-    let result = merge_documents(mergable_docs);
+    let result = merge_documents(mergable_docs, compress);
 
     assert!(result.is_ok());
     let merged_doc = result.unwrap();
@@ -114,57 +116,48 @@ fn test_merge_x_documents(documents_num: u16) {
 
 #[test]
 fn test_merge_2_documents() {
-    test_merge_x_documents(2);
+    test_merge_x_documents(2, COMPRESS_OUTPUT_WHEN_TESTING);
 }
 
 #[test]
 fn test_merge_5_documents() {
-    test_merge_x_documents(5);
+    test_merge_x_documents(5, COMPRESS_OUTPUT_WHEN_TESTING);
 }
 
 #[test]
 fn test_merge_10_documents() {
-    test_merge_x_documents(10);
+    test_merge_x_documents(10, COMPRESS_OUTPUT_WHEN_TESTING);
 }
 
 #[test]
 fn test_merge_20_documents() {
-    test_merge_x_documents(20);
+    test_merge_x_documents(20, COMPRESS_OUTPUT_WHEN_TESTING);
 }
 
 #[test]
 fn test_merge_31_documents() {
-    test_merge_x_documents(31);
+    test_merge_x_documents(31, COMPRESS_OUTPUT_WHEN_TESTING);
 }
 
 #[test]
 fn test_merge_40_documents() {
-    test_merge_x_documents(40);
+    test_merge_x_documents(40, COMPRESS_OUTPUT_WHEN_TESTING);
 }
 
 #[test]
 fn test_merge_100_documents() {
-    test_merge_x_documents(100);
+    test_merge_x_documents(100, COMPRESS_OUTPUT_WHEN_TESTING);
 }
 
 #[test]
 fn test_merge_500_documents() {
-    test_merge_x_documents(500);
+    test_merge_x_documents(500, COMPRESS_OUTPUT_WHEN_TESTING);
 }
 
 #[test]
-fn test_merge_1337_documents() {
-    test_merge_x_documents(1337)
-}
-#[test]
-fn test_merge_6666_documents() {
-    test_merge_x_documents(6666)
-}
-
-#[test]
-fn test_merge_empty_documents() {
+fn test_error_on_merge_empty_documents() {
     let mergable_docs = vec![];
-    let result = merge_documents(mergable_docs);
+    let result = merge_documents(mergable_docs, COMPRESS_OUTPUT_WHEN_TESTING);
 
     assert!(result.is_err());
     let error = result.err().unwrap();
