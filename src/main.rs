@@ -6,7 +6,7 @@ use stapler::merge::FileSystemOptions;
 
 fn parse_cli_arguments() -> Result<(Vec<String>, String, bool), &'static str> {
     let matches = Command::new("stapler")
-        .version("0.1.0")
+        .version(env!("CARGO_PKG_VERSION"))
         .author("Marc Gilbrecht <marc-gilbrecht@outlook.de>")
         .about("Merge multiple (minimum 2) PDF files into one PDF file and nothing else")
         .arg(
