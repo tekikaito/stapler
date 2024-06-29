@@ -9,9 +9,9 @@ use merge::{
 use stapler::{ merge::{ self, tests::COMPRESS_OUTPUT_WHEN_TESTING }, stapler };
 
 fn stapler_benchmark(c: &mut Criterion) {
-    let testfiles_dir = "testfiles";
     // get maximum from env variable or default to 100
     let max_files = var("CRITERION_MAX_FILES").unwrap_or("100".to_string()).parse::<u32>().unwrap();
+    let testfiles_dir = format!("testfiles/from-bencharks/{}-inputs", max_files);
 
     let input_files: Vec<String> = (1..=max_files)
         .map(|index| format!("{}/input{}.pdf", testfiles_dir, index))
@@ -19,20 +19,12 @@ fn stapler_benchmark(c: &mut Criterion) {
     let output_file = format!("{}/output.pdf", testfiles_dir);
 
     // ensure the testfiles directory exists
-    fs::create_dir_all(testfiles_dir).unwrap();
+    fs::create_dir_all(testfiles_dir.clone()).unwrap();
 
     let file_options = FileSystemOptions {
         input_sources: input_files
             .iter()
-            .enumerate()
-            .map(|(index, input_file)| {
-                create_sample_pdf(&(index + 1).to_string())
-                    .save(input_file)
-                    .unwrap();
-                FileSystemMergingSource {
-                    input_file,
-                }
-            })
+            .map(|input_file| { FileSystemMergingSource { input_file } })
             .collect(),
         destination: FileSystemMergingDestination {
             output_file: &output_file,
@@ -40,13 +32,20 @@ fn stapler_benchmark(c: &mut Criterion) {
         compress: COMPRESS_OUTPUT_WHEN_TESTING,
     };
 
-    c.bench_function("stapler", |b| {
+    c.bench_function(&format!("stapler running on {} files", max_files), |b| {
         b.iter_batched(
-            || black_box(file_options.clone()),
-            |file_options| {
-                // Code to be benchmarked goes here
-                stapler(file_options)
+            || {
+                file_options.input_sources
+                    .iter()
+                    .enumerate()
+                    .for_each(|(index, source)| {
+                        create_sample_pdf(&(index + 1).to_string())
+                            .save(source.input_file)
+                            .unwrap();
+                    });
+                black_box(file_options.clone())
             },
+            |file_options| stapler(file_options),
             BatchSize::LargeInput
         )
     });
