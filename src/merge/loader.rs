@@ -49,7 +49,6 @@ impl MergableDocument {
 }
 
 pub mod fs {
-    use std::path::MAIN_SEPARATOR;
     use lopdf::Document;
 
     use super::*;
@@ -70,7 +69,7 @@ pub mod fs {
                 panic!("Failed to load {}", self.input_file)
             );
             let original_filename = self.input_file
-                .split(MAIN_SEPARATOR)
+                .split(std::path::MAIN_SEPARATOR)
                 .last()
                 .unwrap()
                 .to_string();

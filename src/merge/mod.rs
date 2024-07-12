@@ -1,7 +1,7 @@
 pub mod loader;
 pub mod tests;
 use loader::{ fs::{ FileSystemMergingDestination, FileSystemMergingSource }, MergableDocument };
-use lopdf::{ Document, Object, ObjectId };
+use lopdf::{ Bookmark, Document, Object, ObjectId };
 use std::{ collections::BTreeMap, error::Error, result::Result };
 
 #[derive(Debug, Clone)]
@@ -105,8 +105,8 @@ fn process_documents_objects(
     Ok((root_page_object.unwrap(), root_catalog_object.unwrap()))
 }
 
-fn insert_pages(document: &mut Document, pages: BTreeMap<ObjectId, Object>, parent: (u32, u16)) {
-    for (object_id, object) in pages {
+fn insert_pages(document: &mut Document, pages: &BTreeMap<ObjectId, Object>, parent: (u32, u16)) {
+    for (object_id, object) in pages.clone() {
         if let Ok(dictionary) = object.as_dict() {
             let mut dictionary = dictionary.clone();
             dictionary.set("Parent", Object::Reference(parent));
@@ -115,39 +115,44 @@ fn insert_pages(document: &mut Document, pages: BTreeMap<ObjectId, Object>, pare
     }
 }
 
+fn add_bookmarks(doc: &mut Document, bookmarks: &BTreeMap<Option<u32>, Bookmark>) {
+    for (reference, bookmark) in bookmarks {
+        doc.add_bookmark(bookmark.clone(), *reference);
+    }
+}
+
 pub fn merge_documents(
-    documents: Vec<MergableDocument>,
+    input_docs: Vec<MergableDocument>,
     compress: bool
 ) -> Result<Document, Box<dyn Error>> {
-    if documents.len() < 2 {
+    if input_docs.len() < 2 {
         return Err("At least two documents are required to merge.".into());
     }
 
-    let mut res_pages = BTreeMap::new();
-    let mut res_objects = BTreeMap::new();
-    let mut res_bookmarks = BTreeMap::new();
+    let mut pages_map = BTreeMap::new();
+    let mut objects_map = BTreeMap::new();
+    let mut bookmarks_map = BTreeMap::new();
     let mut max_id: u32 = 1;
 
-    let mut document = Document::with_version("1.5");
-    documents.into_iter().for_each(|mut doc| {
-        let first_page_id = doc.renumber(max_id).get_first_page_id();
-        res_bookmarks.insert(None, doc.get_filename_based_bookmark(first_page_id));
-        res_pages.extend(doc.get_pages());
-        res_objects.extend(doc.get_objects());
-        max_id = doc.get_max_id() + 1;
-    });
+    let mut result_doc = Document::with_version("1.5");
 
-    if let Ok((root_catalog, root_page)) = process_documents_objects(&mut document, &res_objects) {
-        res_bookmarks.iter().for_each(|(reference, bookmark)| {
-            document.add_bookmark(bookmark.clone(), *reference);
-        });
-        insert_pages(&mut document, res_pages.clone(), root_page.0);
-        update_document_hierarchy(&mut document, root_page, root_catalog, res_pages);
+    for mut doc in input_docs {
+        let first_page_id = doc.renumber(max_id).get_first_page_id();
+        bookmarks_map.insert(None, doc.get_filename_based_bookmark(first_page_id));
+        pages_map.extend(doc.get_pages());
+        objects_map.extend(doc.get_objects());
+        max_id = doc.get_max_id() + 1;
+    }
+
+    if let Ok((root_catalog, root_page)) = process_documents_objects(&mut result_doc, &objects_map) {
+        add_bookmarks(&mut result_doc, &bookmarks_map);
+        insert_pages(&mut result_doc, &pages_map, root_page.0);
+        update_document_hierarchy(&mut result_doc, root_page, root_catalog, pages_map);
     }
 
     if compress {
-        document.compress();
+        result_doc.compress();
     }
 
-    Ok(document)
+    Ok(result_doc)
 }
