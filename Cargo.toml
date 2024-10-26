@@ -2,7 +2,7 @@
 name = "stapler"
 version = "0.2.2"
 edition = "2021"
-authors = ["Marc Gilbrecht <marc-gilbrecht@outlook.de"]
+authors = ["Marc Gilbrecht <marc-gilbrecht@outlook.de>"]
 description = "Merge multiple (minimum 2) PDF files into one PDF file and nothing else"
 
 [lib]
@@ -16,6 +16,7 @@ path = "src/main.rs"
 [dependencies]
 lopdf = { version = "0.34.0" }
 clap = { version = "4.5.20" }
+anyhow = "1.0.91"
 
 [dev-dependencies]
 criterion = { version = "0.5.1" }
