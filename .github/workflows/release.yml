@@ -14,7 +14,8 @@ jobs:
         target:
           - x86_64-unknown-linux-gnu
           - x86_64-pc-windows-gnu
-          - x86_64-apple-darwin
+        # TODO:
+        # - x86_64-apple-darwin
 
     steps:
       - name: Checkout repository
@@ -28,9 +29,9 @@ jobs:
       - name: Install cross
         run: cargo install cross
 
-      - name: Install darwin target
-        if: matrix.target == 'x86_64-apple-darwin'
-        run: rustup target add x86_64-apple-darwin
+      # - name: Install darwin target
+      #   if: matrix.target == 'x86_64-apple-darwin'
+      #   run: rustup target add x86_64-apple-darwin
 
       - name: Build for ${{ matrix.target }}
         run: cross build --release --target ${{ matrix.target }}
