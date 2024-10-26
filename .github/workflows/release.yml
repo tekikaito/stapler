@@ -51,8 +51,10 @@ jobs:
       - name: Download binaries
         uses: actions/download-artifact@v4
         with:
-          name: stapler-*
           path: dist
+          pattern: stapler-*
+          merge-multiple: true
+      - run: ls -R dist
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
