@@ -1,8 +1,12 @@
 pub mod loader;
 pub mod tests;
-use loader::{ fs::{ FileSystemMergingDestination, FileSystemMergingSource }, MergableDocument };
-use lopdf::{ Bookmark, Document, Object, ObjectId };
-use std::{ collections::BTreeMap, error::Error, result::Result };
+use anyhow::{Context, Result};
+use loader::{
+    fs::{FileSystemMergingDestination, FileSystemMergingSource},
+    MergableDocument,
+};
+use lopdf::{Bookmark, Document, Object, ObjectId};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone)]
 pub struct FileSystemOptions<'a> {
@@ -28,7 +32,7 @@ fn update_document_hierarchy(
     document: &mut Document,
     root_page: (ObjectId, Object),
     catalog_object: (ObjectId, Object),
-    pages: BTreeMap<ObjectId, Object>
+    pages: BTreeMap<ObjectId, Object>,
 ) {
     if let Ok(dictionary) = root_page.1.as_dict() {
         let mut dictionary = dictionary.clone();
@@ -38,16 +42,20 @@ fn update_document_hierarchy(
             pages
                 .keys()
                 .map(|arg0: &(u32, u16)| Object::Reference(*arg0))
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>(),
         );
-        document.objects.insert(root_page.0, Object::Dictionary(dictionary));
+        document
+            .objects
+            .insert(root_page.0, Object::Dictionary(dictionary));
     }
 
     if let Ok(dictionary) = catalog_object.1.as_dict() {
         let mut dictionary = dictionary.clone();
         dictionary.set("Pages", root_page.0);
         dictionary.remove(b"Outlines");
-        document.objects.insert(catalog_object.0, Object::Dictionary(dictionary));
+        document
+            .objects
+            .insert(catalog_object.0, Object::Dictionary(dictionary));
     }
 
     document.trailer.set("Root", catalog_object.0);
@@ -62,12 +70,12 @@ fn update_document_hierarchy(
     }
 }
 
-type ProcessedObjectsResult = Result<(((u32, u16), Object), ((u32, u16), Object)), &'static str>;
+type ProcessedObjects = (((u32, u16), Object), ((u32, u16), Object));
 
 fn process_documents_objects(
     document: &mut Document,
-    objects: &BTreeMap<ObjectId, Object>
-) -> ProcessedObjectsResult {
+    objects: &BTreeMap<ObjectId, Object>,
+) -> Result<ProcessedObjects> {
     let mut root_catalog_object: Option<(ObjectId, Object)> = None;
     let mut root_page_object: Option<(ObjectId, Object)> = None;
 
@@ -94,15 +102,10 @@ fn process_documents_objects(
         }
     }
 
-    if root_page_object.is_none() {
-        return Err("Pages root not found.");
-    }
+    let root_page_object = root_page_object.context("Pages root not found.")?;
+    let root_catalog_object = root_catalog_object.context("Catalog root not found.")?;
 
-    if root_catalog_object.is_none() {
-        return Err("Catalog root not found.");
-    }
-
-    Ok((root_page_object.unwrap(), root_catalog_object.unwrap()))
+    Ok((root_page_object, root_catalog_object))
 }
 
 fn insert_pages(document: &mut Document, pages: &BTreeMap<ObjectId, Object>, parent: (u32, u16)) {
@@ -110,7 +113,9 @@ fn insert_pages(document: &mut Document, pages: &BTreeMap<ObjectId, Object>, par
         if let Ok(dictionary) = object.as_dict() {
             let mut dictionary = dictionary.clone();
             dictionary.set("Parent", Object::Reference(parent));
-            document.objects.insert(object_id, Object::Dictionary(dictionary));
+            document
+                .objects
+                .insert(object_id, Object::Dictionary(dictionary));
         }
     }
 }
@@ -121,13 +126,11 @@ fn add_bookmarks(doc: &mut Document, bookmarks: &BTreeMap<Option<u32>, Bookmark>
     }
 }
 
-pub fn merge_documents(
-    input_docs: Vec<MergableDocument>,
-    compress: bool
-) -> Result<Document, Box<dyn Error>> {
-    if input_docs.len() < 2 {
-        return Err("At least two documents are required to merge.".into());
-    }
+pub fn merge_documents(input_docs: Vec<MergableDocument>, compress: bool) -> Result<Document> {
+    anyhow::ensure!(
+        input_docs.len() >= 2,
+        "At least two documents are required to merge."
+    );
 
     let mut pages_map = BTreeMap::new();
     let mut objects_map = BTreeMap::new();
@@ -144,11 +147,11 @@ pub fn merge_documents(
         max_id = doc.get_max_id() + 1;
     }
 
-    if let Ok((root_catalog, root_page)) = process_documents_objects(&mut result_doc, &objects_map) {
-        add_bookmarks(&mut result_doc, &bookmarks_map);
-        insert_pages(&mut result_doc, &pages_map, root_page.0);
-        update_document_hierarchy(&mut result_doc, root_page, root_catalog, pages_map);
-    }
+    let (root_catalog, root_page) = process_documents_objects(&mut result_doc, &objects_map)?;
+
+    add_bookmarks(&mut result_doc, &bookmarks_map);
+    insert_pages(&mut result_doc, &pages_map, root_page.0);
+    update_document_hierarchy(&mut result_doc, root_page, root_catalog, pages_map);
 
     if compress {
         result_doc.compress();

@@ -1,10 +1,11 @@
 use std::process::exit;
 
-use clap::{ Arg, ArgAction, Command };
-use stapler::stapler;
+use anyhow::{Context, Result};
+use clap::{Arg, ArgAction, Command};
 use stapler::merge::FileSystemOptions;
+use stapler::stapler;
 
-fn parse_cli_arguments() -> Result<(Vec<String>, String, bool), &'static str> {
+fn parse_cli_arguments() -> Result<(Vec<String>, String, bool)> {
     let matches = Command::new("stapler")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
@@ -17,7 +18,7 @@ fn parse_cli_arguments() -> Result<(Vec<String>, String, bool), &'static str> {
                 .help("Input PDF files")
                 .num_args(2..)
                 .value_delimiter(' ')
-                .required(true)
+                .required(true),
         )
         .arg(
             Arg::new("output")
@@ -25,7 +26,7 @@ fn parse_cli_arguments() -> Result<(Vec<String>, String, bool), &'static str> {
                 .long("output")
                 .value_name("FILE")
                 .help("Output PDF file")
-                .required(true)
+                .required(true),
         )
         .arg(
             Arg::new("compress")
@@ -33,38 +34,47 @@ fn parse_cli_arguments() -> Result<(Vec<String>, String, bool), &'static str> {
                 .short('c')
                 .long("compress")
                 .help("Compress the output PDF file")
-                .required(false)
+                .required(false),
         )
         .get_matches();
 
-    let input_files: Vec<String> = if let Some(files) = matches.get_many::<String>("input") {
-        files.map(|s| s.to_owned()).collect()
-    } else {
-        return Err("No input files provided");
-    };
+    let input_files: Vec<String> = matches
+        .get_many::<String>("input")
+        .context("No input files provided")?
+        .cloned()
+        .collect();
 
-    let output_file: String = if let Some(file) = matches.get_one::<String>("output") {
-        file.to_owned()
-    } else {
-        return Err("No output file provided");
-    };
+    let output_file: String = matches
+        .get_one::<String>("output")
+        .context("No output file provided")?
+        .clone();
 
-    let compress: bool = matches.get_flag("compress");
+    let compress = matches
+        .get_one::<bool>("compress")
+        .copied()
+        .unwrap_or(false);
 
     Ok((input_files, output_file, compress))
 }
 
-fn main() {
-    if let Ok((input_files, output_file, compress)) = parse_cli_arguments() {
-        let file_options = FileSystemOptions::from((&input_files, &output_file, compress));
+fn main() -> Result<()> {
+    let (input_files, output_file, compress) = parse_cli_arguments()?;
+    let file_options = FileSystemOptions::from((&input_files, &output_file, compress));
 
-        println!("[STAPLER] Merging PDFs: {:?} into {}", input_files, output_file);
+    println!(
+        "[STAPLER] Merging PDFs: {:?} into {}",
+        input_files, output_file
+    );
 
-        if let Err(e) = stapler(file_options) {
-            eprintln!("[STAPLER] Error: {}", e);
-            exit(1);
-        }
-
-        println!("[STAPLER] PDFs merged successfully. Output file: {}", output_file);
+    if let Err(e) = stapler(file_options) {
+        eprintln!("[STAPLER] Error: {}", e);
+        exit(1);
     }
+
+    println!(
+        "[STAPLER] PDFs merged successfully. Output file: {}",
+        output_file
+    );
+
+    Ok(())
 }

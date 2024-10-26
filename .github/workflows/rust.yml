@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run benchmarks
         run: |
-          set -e 
+          set -e
           export CRITERION_MAX_FILES=2
           for _ in {1..4}; do
             cargo bench
@@ -47,7 +47,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run benchmarks
         run: |
-          set -e 
+          set -e
           export CRITERION_MAX_FILES=10
           for _ in {1..4}; do
             cargo bench
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run benchmarks
         run: |
-          set -e 
+          set -e
           export CRITERION_MAX_FILES=100
           for _ in {1..4}; do
             cargo bench
@@ -75,7 +75,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run benchmarks
         run: |
-          set -e 
+          set -e
           export CRITERION_MAX_FILES=500
           for _ in {1..4}; do
             cargo bench
@@ -89,7 +89,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run benchmarks
         run: |
-          set -e 
+          set -e
           export CRITERION_MAX_FILES=1000
           for _ in {1..4}; do
             cargo bench
