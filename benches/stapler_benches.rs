@@ -1,16 +1,22 @@
-use std::{ env::var, fs };
+use std::{env::var, fs};
 
-use criterion::{ black_box, criterion_group, criterion_main, BatchSize, Criterion };
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use merge::{
-    loader::fs::{ FileSystemMergingDestination, FileSystemMergingSource },
-    FileSystemOptions,
+    loader::fs::{FileSystemMergingDestination, FileSystemMergingSource},
     tests::create_sample_pdf,
+    FileSystemOptions,
 };
-use stapler::{ merge::{ self, tests::COMPRESS_OUTPUT_WHEN_TESTING }, stapler };
+use stapler::{
+    merge::{self, tests::COMPRESS_OUTPUT_WHEN_TESTING},
+    stapler,
+};
 
 fn stapler_benchmark(c: &mut Criterion) {
     // get maximum from env variable or default to 100
-    let max_files = var("CRITERION_MAX_FILES").unwrap_or("100".to_string()).parse::<u32>().unwrap();
+    let max_files = var("CRITERION_MAX_FILES")
+        .unwrap_or("100".to_string())
+        .parse::<u32>()
+        .unwrap();
     let testfiles_dir = format!("testfiles/from-bencharks/{}-inputs", max_files);
 
     let input_files: Vec<String> = (1..=max_files)
@@ -24,7 +30,7 @@ fn stapler_benchmark(c: &mut Criterion) {
     let file_options = FileSystemOptions {
         input_sources: input_files
             .iter()
-            .map(|input_file| { FileSystemMergingSource { input_file } })
+            .map(|input_file| FileSystemMergingSource { input_file })
             .collect(),
         destination: FileSystemMergingDestination {
             output_file: &output_file,
@@ -35,7 +41,8 @@ fn stapler_benchmark(c: &mut Criterion) {
     c.bench_function(&format!("stapler running on {} files", max_files), |b| {
         b.iter_batched(
             || {
-                file_options.input_sources
+                file_options
+                    .input_sources
                     .iter()
                     .enumerate()
                     .for_each(|(index, source)| {
@@ -46,7 +53,7 @@ fn stapler_benchmark(c: &mut Criterion) {
                 black_box(file_options.clone())
             },
             |file_options| stapler(file_options),
-            BatchSize::LargeInput
+            BatchSize::LargeInput,
         )
     });
 

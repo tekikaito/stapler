@@ -1,4 +1,5 @@
 pub mod loader;
+#[cfg(test)]
 pub mod tests;
 use anyhow::{Context, Result};
 use loader::{
