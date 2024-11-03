@@ -108,7 +108,7 @@ fn process_documents_objects(
                 };
                 if let Some((_, ref existing_object)) = root_page_object {
                     if let Ok(existing_dict) = existing_object.as_dict() {
-                        dictionary.extend(&existing_dict);
+                        dictionary.extend(existing_dict);
                     }
                 }
                 root_page_object = Some((object_id, Object::Dictionary(dictionary)));
