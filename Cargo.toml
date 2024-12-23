@@ -16,7 +16,7 @@ path = "src/main.rs"
 [dependencies]
 lopdf = { version = "0.34.0" }
 clap = { version = "4.5.23" }
-anyhow = "1.0.94"
+anyhow = "1.0.95"
 
 [dev-dependencies]
 criterion = { version = "0.5.1" }
