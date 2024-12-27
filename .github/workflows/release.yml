@@ -53,8 +53,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.OUT_NAME }}
-          path: ${{ env.OUT_NAME }}
+          name: dist/${{ env.OUT_NAME }}
+          path: dist/${{ env.OUT_NAME }}
 
       
 
