@@ -38,7 +38,7 @@ jobs:
           OUT_NAME="stapler-${{ matrix.target }}${{ matrix.target == 'x86_64-pc-windows-gnu' && '.exe' || '' }}"
           # Rename the binary to include the target architecture in the filename
           mv target/${{ matrix.target }}/release/stapler* "${OUT_NAME}"
-        uses: actions/upload-artifact@v4
+        # uses: actions/upload-artifact@v4
         with:
           name: "${OUT_NAME}"
           path: "${OUT_NAME}"
