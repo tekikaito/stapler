@@ -37,6 +37,7 @@ jobs:
           # Define output filename based on target platform
           OUT_NAME="stapler-${{ matrix.target }}${{ matrix.target == 'x86_64-pc-windows-gnu' && '.exe' || '' }}"
           # Rename the binary to include the target architecture in the filename
+          mkdir -p target/${{ matrix.target }}/release
           mv target/${{ matrix.target }}/release/stapler* "${OUT_NAME}"
   
       - name: Upload artifavt 
