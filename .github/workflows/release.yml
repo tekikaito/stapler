@@ -33,20 +33,30 @@ jobs:
         run: cross build --release --target ${{ matrix.target }}
 
       - name: Rename binary
-        # Nutze hier Shell-Variablen und setze die Env-Variable fürs Upload
         run: |
-          # OUT_NAME setzt du je nach Target
+          # Dateiname zusammensetzen
           OUT_NAME="stapler-${{ matrix.target }}${{ matrix.target == 'x86_64-pc-windows-gnu' && '.exe' || '' }}"
           echo "OUT_NAME=$OUT_NAME" >> $GITHUB_ENV
-          
-          # Umbennen des fertigen Builds
-          mv target/${{ matrix.target }}/release/stapler* "$OUT_NAME"
+
+          echo "==> Dateien in release-Ordner:"
+          ls -al target/${{ matrix.target }}/release/
+
+          # Abhängig vom Zielsystem umbenennen
+          if [[ "${{ matrix.target }}" == "x86_64-pc-windows-gnu" ]]; then
+            mv target/${{ matrix.target }}/release/stapler.exe "$OUT_NAME"
+          else
+            # Falls du sicher bist, dass die Datei schlicht 'stapler' heißt:
+            mv target/${{ matrix.target }}/release/stapler "$OUT_NAME"
+          fi
+        shell: bash
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.OUT_NAME }}
           path: ${{ env.OUT_NAME }}
+
+      
 
   release:
     needs: build
