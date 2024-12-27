@@ -54,10 +54,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: stapler-${{ matrix.target }}
-          compression-level: best
           path: stapler-${{ matrix.target }}${{ matrix.target == 'x86_64-pc-windows-gnu' && '.exe' || '' }}
-
-      
 
   release:
     needs: build
