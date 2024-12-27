@@ -14,7 +14,7 @@ jobs:
         target:
           - x86_64-unknown-linux-gnu
           - x86_64-pc-windows-gnu
-        # TODO:
+        # TODO: 
         # - x86_64-apple-darwin
 
     steps:
@@ -32,29 +32,33 @@ jobs:
       - name: Build for ${{ matrix.target }}
         run: cross build --release --target ${{ matrix.target }}
 
-      - name: Rename
+      - name: Rename binary
+        # Nutze hier Shell-Variablen und setze die Env-Variable fürs Upload
         run: |
-          # Define output filename based on target platform
+          # OUT_NAME setzt du je nach Target
           OUT_NAME="stapler-${{ matrix.target }}${{ matrix.target == 'x86_64-pc-windows-gnu' && '.exe' || '' }}"
-          # Rename the binary to include the target architecture in the filename
-          mkdir -p target/${{ matrix.target }}/release
-          mv target/${{ matrix.target }}/release/stapler* "${OUT_NAME}"
-  
-      - name: Upload artifavt 
+          echo "OUT_NAME=$OUT_NAME" >> $GITHUB_ENV
+          
+          # Umbennen des fertigen Builds
+          mv target/${{ matrix.target }}/release/stapler* "$OUT_NAME"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: "${OUT_NAME}"
-          path: "${OUT_NAME}"
+          name: ${{ env.OUT_NAME }}
+          path: ${{ env.OUT_NAME }}
 
   release:
     needs: build
     runs-on: ubuntu-latest
+    # Läuft nur für Tags, die mit 'v' beginnen
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
-      - name: Download binaries
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
+          # Lädt alle hochgeladenen Artefakte herunter
           path: dist
 
       - name: List artifacts
