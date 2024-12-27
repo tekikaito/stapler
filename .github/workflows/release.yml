@@ -53,8 +53,9 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dist/${{ env.OUT_NAME }}
-          path: dist/${{ env.OUT_NAME }}
+          name: stapler-${{ matrix.target }}
+          compression-level: best
+          path: stapler-${{ matrix.target }}${{ matrix.target == 'x86_64-pc-windows-gnu' && '.exe' || '' }}
 
       
 
@@ -69,7 +70,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           # Lädt alle hochgeladenen Artefakte herunter
-          path: dist
+          path: dist                    
+
 
       - name: List artifacts
         run: ls -R dist
