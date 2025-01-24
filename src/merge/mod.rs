@@ -100,7 +100,7 @@ fn update_document_hierarchy(
 
 /// Container for critical PDF structure elements
 struct ProcessedObjects {
-    root_page_object: (ObjectId, Object),    // Reference to /Pages tree root
+    root_page_object: (ObjectId, Object), // Reference to /Pages tree root
     root_catalog_object: (ObjectId, Object), // Reference to /Catalog
 }
 
@@ -115,9 +115,10 @@ fn process_documents_objects(
     // Classify and process each PDF object
     for (object_id, object) in objects {
         match object.type_name().unwrap_or("") {
-            "Catalog" => root_catalog_object.get_or_insert((object_id, object)),
+            "Catalog" => {
+                root_catalog_object.get_or_insert((object_id, object));
+            }
             "Pages" => {
-                // Merge page tree properties when combining documents
                 let Object::Dictionary(mut dictionary) = object else {
                     continue;
                 };
@@ -129,8 +130,10 @@ fn process_documents_objects(
                 root_page_object = Some((object_id, Object::Dictionary(dictionary)));
             }
             "Page" | "Outlines" | "Outline" => {} // These are handled separately
-            _ => document.objects.insert(object_id, object),
-        };
+            _ => {
+                document.objects.insert(object_id, object);
+            }
+        }
     }
 
     let root_page_object = root_page_object.context("Pages root not found.")?;
@@ -194,14 +197,14 @@ pub fn merge_documents(input_docs: Vec<MergableDocument>, compress: bool) -> Res
     for mut doc in input_docs {
         // Renumber objects to prevent ID collisions
         let first_page_id = doc.renumber(max_id).get_first_page_id();
-        
+
         // Create filename-based bookmark for document
         bookmarks_map.insert(None, doc.get_filename_based_bookmark(first_page_id));
-        
+
         // Collect pages and objects
         pages_map.extend(doc.get_pages());
         objects_map.extend(doc.get_objects());
-        
+
         // Update ID counter for next document
         max_id = doc.get_max_id() + 1;
     }
