@@ -1,6 +1,6 @@
 [package]
 name = "stapler"
-version = "0.2.11"
+version = "1.0.0"
 edition = "2021"
 authors = ["Marc Gilbrecht <marc-gilbrecht@outlook.de>"]
 description = "Merge multiple (minimum 2) PDF files into one PDF file and nothing else"
