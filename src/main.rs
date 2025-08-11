@@ -2,8 +2,51 @@ use std::process::exit;
 
 use anyhow::{Context, Result};
 use clap::{Arg, ArgAction, Command};
+use glob::glob;
 use stapler::merge::FileSystemOptions;
 use stapler::stapler;
+
+fn expand_glob_patterns(patterns: Vec<String>) -> Result<Vec<String>> {
+    let mut expanded_files = Vec::new();
+    
+    for pattern in patterns {
+        // Check if the pattern contains glob characters
+        if pattern.contains('*') || pattern.contains('?') || pattern.contains('[') {
+            // It's a glob pattern, expand it
+            let glob_matches = glob(&pattern)
+                .with_context(|| format!("Invalid glob pattern: {}", pattern))?;
+            
+            let mut pattern_matches = Vec::new();
+            for entry in glob_matches {
+                match entry {
+                    Ok(path) => {
+                        // Only include files that exist and have .pdf extension
+                        if path.is_file() && path.extension()
+                            .map_or(false, |ext| ext.to_string_lossy().to_lowercase() == "pdf") {
+                            pattern_matches.push(path.to_string_lossy().to_string());
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("[STAPLER] Warning: Error processing glob pattern '{}': {}", pattern, e);
+                    }
+                }
+            }
+            
+            if pattern_matches.is_empty() {
+                eprintln!("[STAPLER] Warning: No PDF files found matching pattern: {}", pattern);
+            } else {
+                // Sort the matches for consistent ordering
+                pattern_matches.sort();
+                expanded_files.extend(pattern_matches);
+            }
+        } else {
+            // It's a literal file path, add it directly
+            expanded_files.push(pattern);
+        }
+    }
+    
+    Ok(expanded_files)
+}
 
 fn parse_cli_arguments() -> Result<(Vec<String>, String, bool)> {
     let matches = Command::new("stapler")
@@ -15,8 +58,8 @@ fn parse_cli_arguments() -> Result<(Vec<String>, String, bool)> {
                 .short('i')
                 .long("input")
                 .value_name("FILES")
-                .help("Input PDF files")
-                .num_args(2..)
+                .help("Input PDF files or glob patterns (e.g., *.pdf, /path/to/*.pdf)")
+                .num_args(1..)
                 .value_delimiter(' ')
                 .required(true),
         )
@@ -38,11 +81,22 @@ fn parse_cli_arguments() -> Result<(Vec<String>, String, bool)> {
         )
         .get_matches();
 
-    let input_files: Vec<String> = matches
+    let input_patterns: Vec<String> = matches
         .get_many::<String>("input")
         .context("No input files provided")?
         .cloned()
         .collect();
+
+    // Expand glob patterns
+    let input_files = expand_glob_patterns(input_patterns)?;
+    
+    if input_files.is_empty() {
+        anyhow::bail!("No PDF files found after expanding patterns");
+    }
+    
+    if input_files.len() < 2 {
+        anyhow::bail!("At least 2 PDF files are required for merging");
+    }
 
     let output_file: String = matches
         .get_one::<String>("output")
@@ -62,9 +116,16 @@ fn main() -> Result<()> {
     let file_options = FileSystemOptions::from((&input_files, &output_file, compress));
 
     println!(
-        "[STAPLER] Merging PDFs: {:?} into {}",
-        input_files, output_file
+        "[STAPLER] Found {} PDF files to merge into {}",
+        input_files.len(), output_file
     );
+    
+    if input_files.len() <= 10 {
+        println!("[STAPLER] Input files: {:?}", input_files);
+    } else {
+        println!("[STAPLER] Input files: {} files (showing first 5): {:?}...", 
+                 input_files.len(), &input_files[..5]);
+    }
 
     if let Err(e) = stapler(file_options) {
         eprintln!("[STAPLER] Error: {}", e);
