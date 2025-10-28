@@ -13,7 +13,13 @@
 
 ## Installation
 
-To use `stapler`, you need to have Rust installed. If Rust is not installed, [install it from here](https://www.rust-lang.org/tools/install).
+### Download
+
+You can download the binary that matches your system [here](https://github.com/tekikaito/stapler/releases).
+
+### Build from source
+
+To build `stapler` from source, you need to have Rust installed. If Rust is not installed, [install it from here](https://www.rust-lang.org/tools/install).
 
 Clone this repository and build the project:
 
