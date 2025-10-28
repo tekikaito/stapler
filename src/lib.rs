@@ -10,7 +10,7 @@ pub fn stapler(options: FileSystemOptions) -> Result<File> {
     let loaded_documents = options
         .input_sources
         .iter()
-        .map(|source| source.load_from())
+        .map(|source| source.load())
         .collect::<Vec<MergableDocument>>();
 
     let mut document = merge_documents(loaded_documents, options.compress)?;
