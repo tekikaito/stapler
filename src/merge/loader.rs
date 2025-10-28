@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use lopdf::{ Bookmark, Document, Object, ObjectId };
 
 pub trait DocumentLoader {
-    fn load_from(&self) -> MergableDocument;
+    fn load(&self) -> MergableDocument;
 }
 
 pub struct MergableDocument {
@@ -64,7 +64,7 @@ pub mod fs {
     }
 
     impl DocumentLoader for FileSystemMergingSource<'_> {
-        fn load_from(&self) -> MergableDocument {
+        fn load(&self) -> MergableDocument {
             let pdf = Document::load(self.input_file).unwrap_or_else(|_|
                 panic!("Failed to load {}", self.input_file)
             );
