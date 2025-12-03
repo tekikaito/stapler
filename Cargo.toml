@@ -1,6 +1,6 @@
 [package]
 name = "stapler"
-version = "1.0.0"
+version = "1.2.0"
 edition = "2021"
 authors = ["Marc Gilbrecht <marc-gilbrecht@outlook.de>"]
 description = "Merge multiple (minimum 2) PDF files into one PDF file and nothing else"
@@ -15,12 +15,12 @@ path = "src/main.rs"
 
 [dependencies]
 lopdf = { version = "0.38.0" }
-clap = { version = "4.5.46" }
-anyhow = "1.0.99"
+anyhow = "1.0.100"
+clap = { version = "4.5.53" }
 glob = "0.3.3"
 
 [dev-dependencies]
-criterion = { version = "0.7.0" }
+criterion = { version = "0.8.0" }
 
 [[bench]]
 name = "stapler_benches"
