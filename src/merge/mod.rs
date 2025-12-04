@@ -98,11 +98,11 @@ fn process_documents_objects(
     let mut root_page_object: Option<(ObjectId, Object)> = None;
 
     for (object_id, object) in objects {
-        match object.type_name().unwrap_or("") {
-            "Catalog" => {
+        match object.type_name().unwrap_or(b"") {
+            b"Catalog" => {
                 root_catalog_object.get_or_insert((object_id, object));
             }
-            "Pages" => {
+            b"Pages" => {
                 let Object::Dictionary(mut dictionary) = object else {
                     continue;
                 };
@@ -113,7 +113,7 @@ fn process_documents_objects(
                 }
                 root_page_object = Some((object_id, Object::Dictionary(dictionary)));
             }
-            "Page" | "Outlines" | "Outline" => {}
+            b"Page" | b"Outlines" | b"Outline" => {}
             _ => {
                 document.objects.insert(object_id, object);
             }
